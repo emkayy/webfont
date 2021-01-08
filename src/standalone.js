@@ -37,6 +37,13 @@ async function buildConfig(options) {
   return config;
 }
 
+function errorHandler(error) {
+    if (options.verbose) {
+      console.error(error);
+    }
+    throw new Error(error);
+  }
+
 function getGlyphsData(files, options) {
   const metadataProvider =
     options.metadataProvider ||
@@ -170,7 +177,7 @@ function toWoff2(buffer) {
 
 export default async function (initialOptions) {
   if (!initialOptions || !initialOptions.files) {
-    throw new Error("You must pass webfont a `files` glob");
+    errorHandler("You must pass webfont a `files` glob");
   }
 
   let options = Object.assign(
@@ -233,13 +240,13 @@ export default async function (initialOptions) {
   );
 
   if (filteredFiles.length === 0) {
-    throw new Error("Files glob patterns specified did not match any files");
+    errorHandler("Files glob patterns specified did not match any files");
   }
 
   const result = {};
 
   result.glyphsData = await getGlyphsData(filteredFiles, options);
-  result.svg = await toSvg(result.glyphsData, options);
+  result.svg = await toSvg(result.glyphsData, options).catch(errorHandler);
   result.ttf = toTtf(
     result.svg,
     options.formatsOptions && options.formatsOptions.ttf
@@ -308,7 +315,12 @@ export default async function (initialOptions) {
       hashOption,
     ]);
 
-    result.template = nunjucks.render(templateFilePath, nunjucksOptions);
+    try {
+        result.template = nunjucks.render(templateFilePath, nunjucksOptions);
+    } catch (error) {
+        errorHandler(error)
+        result.template = error;
+    }
   }
 
   if (!options.formats.includes("svg")) {
